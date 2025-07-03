@@ -88,6 +88,8 @@ def update_user(id):
 @login_required
 def delete_user(id):
     user = User.query.get(id)
+    if user.id == current_user.id:
+        return jsonify({'message':'Você não pode deletar a si mesmo'}), 400
     if not user:
         return jsonify({'message':'Usuário não encontrado'}), 404
     db.session.delete(user)
