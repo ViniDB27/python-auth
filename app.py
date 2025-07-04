@@ -2,11 +2,12 @@ from flask import Flask, request, jsonify
 from models.user import User
 from database import db
 from flask_login import LoginManager, login_user, current_user, logout_user, login_required
+import bcrypt
 
 app = Flask(__name__)
 
 app.config['SECRET_KEY'] = 'your_secret_key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql:///root:admin123@127.0.0.1:3306/flask-crud'
 
 login_manager = LoginManager(app)
 db.init_app(app)
@@ -24,7 +25,7 @@ def login():
     password = data.get('password')
     if username or password:
         user = User.query.filter_by(username=username).first()
-        if user and user.password == password:
+        if user and bcrypt.checkpw(str.encode(password), str.encode(user.password)):
             login_user(user)
             print(current_user.is_authenticated)
             return jsonify({'message':'Logado com sucesso'}), 200
@@ -43,7 +44,8 @@ def create_user():
     email = data.get('email')
     password = data.get('password')
     if username and email and password:
-        new_user = User(username=username, email=email, password=password)
+        hashed_password = bcrypt.hashpw(str.encode(password), bcrypt.gensalt())
+        new_user = User(username=username, email=email, password=hashed_password,  role='user')
         db.session.add(new_user)
         db.session.commit()
         return jsonify({'message':'Usuário criado com sucesso'}), 201
@@ -88,6 +90,8 @@ def update_user(id):
 @login_required
 def delete_user(id):
     user = User.query.get(id)
+    if current_user.role != 'admin':
+        return jsonify({"message": "Operação não permitida"}), 403
     if user.id == current_user.id:
         return jsonify({'message':'Você não pode deletar a si mesmo'}), 400
     if not user:
